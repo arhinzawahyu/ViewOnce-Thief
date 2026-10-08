@@ -9,16 +9,18 @@ const { handleStatus } = require("./status");
 const { handleCommand } = require("./commands");
 
 const deleteStore = new Map();
+function pickNum(v) { return typeof v === "string" && !v.includes("@lid") ? v.split("@")[0] : null; }
 
 function myJid() { return state.loggedInNumber ? `${state.loggedInNumber}@s.whatsapp.net` : null; }
 
 // antiDelete: simpan teks untuk kirim ke owner + tulis tabel deleted untuk dashboard
 async function sendAntiDelete(sock, store, chatJid) {
   if (!store || !state.loggedInNumber) return false;
-  const sender = store.pushName || store.senderNum || "?";
-  const where = chatJid?.endsWith("@g.us") ? " di grup" : "";
+  const sender = pickNum(store.senderNum) || store.pushName || "?";
+  const grp = chatJid || "-";
   const kind = store.type || "text";
-  saveDeleted(sender, store.text || "(kosong)", kind, chatJid || "-");
+  const where = grp !== "-" && grp.endsWith("@g.us") ? " di grup" : "";
+  saveDeleted(sender, store.text || "(kosong)", kind, grp, store.pushName || "");
   const info = `Pesan dihapus dari ${sender}${where}\nWaktu: ${moment().tz("Asia/Jakarta").format("DD-MM-YYYY HH:mm:ss")}`;
   const jidMy = `${state.loggedInNumber}@s.whatsapp.net`;
   const t = store.type;
@@ -102,7 +104,8 @@ function registerHandlers(sock) {
         const storeType = msg.type === "conversation" ? "text" : msg.type === "extendedTextMessage" ? "extendedText" :
           msg.type === "imageMessage" ? "image" : msg.type === "videoMessage" ? "video" : "audio";
         try {
-          deleteStore.set(msg.key.id, { text: textOnly, type: storeType, pushName: msg.pushName, ts: Date.now() });
+          const senderNum = pickNum(msg.key.participantAlt) || pickNum(msg.key.participant) || (msg.key.remoteJidAlt || msg.key.remoteJid || "").split("@")[0] || "?";
+          deleteStore.set(msg.key.id, { text: textOnly, type: storeType, pushName: msg.pushName, ts: Date.now(), senderNum });
           if (deleteStore.size > 200) deleteStore.delete(deleteStore.keys().next().value);
         } catch (_) {}
       }
@@ -123,10 +126,11 @@ function registerHandlers(sock) {
         const rjid = msg.key.remoteJid || "";
         if (rjid === "status@broadcast") { /* skip */ }
         else if (rjid.endsWith("@g.us")) {
-          const sender = msg.key.participant?.split("@")[0] || msg.pushName || "?";
-          saveInbox(sender, msg.text.trim() || `[${msg.type}]`, msg.type, rjid.split("@")[0]);
+          const num = pickNum(msg.key.remoteJidAlt) || pickNum(msg.key.participantAlt) || pickNum(msg.key.participant) || msg.pushName || "?";
+          saveInbox(num, msg.text.trim() || `[${msg.type}]`, msg.type, rjid.split("@")[0], msg.pushName || "");
         } else {
-          saveInbox(rjid.split("@")[0], msg.text.trim() || `[${msg.type}]`, msg.type, "-");
+          const num = pickNum(msg.key.remoteJidAlt) || pickNum(msg.key.remoteJid) || msg.pushName || "?";
+          saveInbox(num, msg.text.trim() || `[${msg.type}]`, msg.type, "-", msg.pushName || "");
         }
       }
 

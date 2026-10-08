@@ -16,19 +16,21 @@ function init(){
   )`);
   db.exec(`CREATE TABLE IF NOT EXISTS inbox(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender TEXT, "group" TEXT, text TEXT, kind TEXT, created_at TEXT
+    sender TEXT, "group" TEXT, name TEXT, text TEXT, kind TEXT, created_at TEXT
   )`);
   db.exec(`CREATE TABLE IF NOT EXISTS deleted(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender TEXT, "group" TEXT, text TEXT, kind TEXT, created_at TEXT, deleted_at TEXT
+    sender TEXT, "group" TEXT, name TEXT, text TEXT, kind TEXT, created_at TEXT, deleted_at TEXT
   )`);
+  try { db.exec(`ALTER TABLE inbox ADD COLUMN name TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE deleted ADD COLUMN name TEXT`); } catch {}
 }
 init();
-function saveInbox(sender, text, kind, group){
+function saveInbox(sender, text, kind, group, name){
   if(!text) return null;
-  const row = { sender: sender||"?", "group": group||"-", text: String(text).slice(0,500), kind: kind||"text", created_at: new Date().toISOString() };
+  const row = { sender: sender||"?", "group": group||"-", name: name||"", text: String(text).slice(0,500), kind: kind||"text", created_at: new Date().toISOString() };
   if(db){
-    db.prepare(`INSERT INTO inbox(sender,"group",text,kind,created_at) VALUES(?,?,?,?,?)`).run(row.sender,row["group"],row.text,row.kind,row.created_at);
+    db.prepare(`INSERT INTO inbox(sender,"group",name,text,kind,created_at) VALUES(?,?,?,?,?,?)`).run(row.sender,row["group"],row.name,row.text,row.kind,row.created_at);
     row.id = db.prepare(`SELECT last_insert_rowid() as id`).get().id;
   } else {
     try{
@@ -43,11 +45,11 @@ function listInbox(limit=80){
   if(db) return db.prepare(`SELECT * FROM inbox ORDER BY id DESC LIMIT ?`).all(limit);
   try{ return JSON.parse(fs.readFileSync(path.join(DIR,"inbox.json"),"utf8")).slice(-limit).reverse(); }catch{ return [] }
 }
-function saveDeleted(sender, text, kind, group){
+function saveDeleted(sender, text, kind, group, name){
   if(!text) return null;
-  const row = { sender: sender||"?", "group": group||"-", text: String(text).slice(0,600), kind: kind||"text", created_at: new Date().toISOString(), deleted_at: new Date().toISOString() };
+  const row = { sender: sender||"?", "group": group||"-", name: name||"", text: String(text).slice(0,600), kind: kind||"text", created_at: new Date().toISOString(), deleted_at: new Date().toISOString() };
   if(db){
-    db.prepare(`INSERT INTO deleted(sender,"group",text,kind,created_at,deleted_at) VALUES(?,?,?,?,?,?)`).run(row.sender,row["group"],row.text,row.kind,row.created_at,row.deleted_at);
+    db.prepare(`INSERT INTO deleted(sender,"group",name,text,kind,created_at,deleted_at) VALUES(?,?,?,?,?,?,?)`).run(row.sender,row["group"],row.name,row.text,row.kind,row.created_at,row.deleted_at);
     row.id = db.prepare(`SELECT last_insert_rowid() as id`).get().id;
   } else {
     try{

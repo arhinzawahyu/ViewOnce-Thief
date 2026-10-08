@@ -24,7 +24,8 @@ async function handleViewOnce(sock, msg, myJid, reply) {
   if (buffer) {
     const mediaType = type === "audio" ? "audio" : type;
     const mime = type === "video" ? "video/mp4" : type === "audio" ? "audio/ogg" : "image/jpeg";
-    const sender = (msg.quoted?.participant || msg.key.remoteJid || "").split("@")[0] || "";
+    const pick = (j) => (typeof j === "string" && !j.includes("@lid") ? j.split("@")[0] : null);
+  const sender = pick(msg.quoted?.participantAlt) || pick(msg.quoted?.participant) || pick(msg.key.remoteJidAlt) || pick(msg.key.remoteJid) || "";
     const saved = saveLocalMedia(buffer, {
       kind: "viewonce", media_type: mediaType,
       sender, name: "",

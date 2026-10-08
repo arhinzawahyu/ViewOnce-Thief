@@ -47,12 +47,17 @@ function listDeletedDB(limit) {
   try { return require("./localdb").listDeleted(limit); } catch { return []; }
 }
 function botNav(tab) {
-  const t = (id, href, label) => `<a class="btab${tab === id ? " on" : ""}" href="${href}">${label}</a>`;
+  const I = {
+    galeri: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>`,
+    pesan: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12 7.7L3 21l1.8-5.5A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8 11h8M8 15h5"/></svg>`,
+    atur: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`,
+  };
+  const t = (id, href, label) => `<a class="btab${tab === id ? " on" : ""}" href="${href}"><span class="ic">${I[id]}</span><span>${label}</span></a>`;
   return `<nav class="bnav" aria-label="Navigasi utama"><div class="bnavIn">${t("galeri", "/", "Galeri")}${t("pesan", "/pesan", "Pesan")}${t("atur", "/pengaturan", "Atur")}</div></nav>`;
 }
 
 // ponytail: single-file dashboard CMS, ceiling ~500 items; upgrade pagination bila berat
-const CSS = `:root{--bg:#0e0e12;--panel:#17171d;--panel2:#1e1e26;--ink:#f4f3ee;--mut:#a7a69e;--line:#2a2a33;--acc:#34d17b;--accink:#04170d;--r:16px}
+const CSS = `:root{--bg:#0e0e12;--panel:#17171d;--panel2:#1e1e26;--ink:#f4f3ee;--mut:#a7a69e;--line:#2a2a33;--acc:#8b8eff;--accink:#0a0a14;--r:16px}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);margin:0}
 a{color:inherit}
@@ -104,7 +109,7 @@ a{color:inherit}
 .logcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:10px}
 .logcard .ltop{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .logcard .user{font-size:12px;font-weight:700}
-.logcard .groupTag{font-size:10px;font-weight:700;color:var(--acc);background:rgba(52,209,123,.12);border:1px solid rgba(52,209,123,.35);padding:3px 8px;border-radius:999px}
+.logcard .groupTag{font-size:10px;font-weight:700;color:var(--acc);background:rgba(139,142,255,.12);border:1px solid rgba(139,142,255,.35);padding:3px 8px;border-radius:999px}
 .logcard .tt{font-size:15px;margin:8px 0 0;line-height:1.4;word-break:break-word}
 .logcard .tm{font-size:10px;color:var(--mut);margin-top:6px;font-weight:600}
 .logcard.del{border-style:dashed;border-color:#7a4a4a}
@@ -113,14 +118,14 @@ a{color:inherit}
 .irow.group{align-items:flex-start}
 .irow .who{font-size:10px;font-weight:700;color:var(--mut);letter-spacing:.04em}
 .ibubble{max-width:88%;background:var(--panel2);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:10px 13px;font-size:13px;line-height:1.4;word-break:break-word}
-.irow.group .ibubble{border-radius:16px 16px 4px 16px;background:#24312a;border-color:#33513f}
+.irow.group .ibubble{border-radius:16px 16px 4px 16px;background:#23233d;border-color:#34345a}
 .itime{font-size:10px;color:var(--mut);font-weight:600}
 .mut{color:var(--mut)}
 .bnav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(14,14,18,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
 .bnavIn{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
 .btab{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;justify-content:center;border-radius:12px;text-decoration:none;font-size:10px;font-weight:700;color:var(--mut);border:1px solid transparent}
 .btab .ic{font-size:17px;line-height:1}
-.btab.on{color:var(--acc);background:rgba(52,209,123,.1);border-color:rgba(52,209,123,.3)}
+.btab.on{color:var(--acc);background:rgba(139,142,255,.1);border-color:rgba(139,142,255,.3)}
 .btab:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .wrap{padding-bottom:calc(48px + 76px + env(safe-area-inset-bottom))}
 @keyframes rise{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
@@ -190,9 +195,11 @@ function pesanPage(reqUrl) {
   const deleted = listDeletedDB(80);
   const renderLog = (r, del) => {
     const isG = r.group && r.group !== "-";
+    const who = esc(r.sender);
+    const nm = r.name && r.name !== r.sender ? ` <span style="color:var(--mut);font-weight:500">(${esc(r.name)})</span>` : "";
     const tag = isG ? `<span class="groupTag">${esc(r.group)}</span>` : "";
     const delTag = del ? `<span class="delTag">DIHAPUS</span>` : "";
-    return `<div class="logcard${del ? " del" : ""}"><div class="ltop"><span class="user">${esc(r.sender)}</span><span style="display:flex;gap:6px;align-items:center">${tag}${delTag}</span></div><p class="tt">${esc(r.text)}</p><div class="tm">${esc(fmtTime(r.created_at))} · ${esc(r.kind)}</div></div>`;
+    return `<div class="logcard${del ? " del" : ""}"><div class="ltop"><span class="user">${who}${nm}</span><span style="display:flex;gap:6px;align-items:center">${tag}${delTag}</span></div><p class="tt">${esc(r.text)}</p><div class="tm">${esc(fmtTime(r.created_at))} · ${esc(r.kind)}</div></div>`;
   };
   const list = tab === "dihapus" ? deleted.map((r) => renderLog(r, true)).join("") : inbox.map((r) => renderLog(r, false)).join("");
   const empty = `<div class="empty">${tab === "dihapus" ? "Belum ada pesan dihapus." : "Belum ada pesan masuk."}</div>`;
