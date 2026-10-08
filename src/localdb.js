@@ -44,4 +44,18 @@ function getLocalMedia(id){
   if(db) return db.prepare(`SELECT * FROM media_items WHERE id=?`).get(Number(id));
   try{ const a=JSON.parse(fs.readFileSync(path.join(DIR,"local.json"),"utf8")); return a.find(x=>String(x.id)===String(id)); }catch{return null}
 }
-module.exports = { saveLocalMedia, listLocalMedia, getLocalMedia, MEDIA_DIR: MEDIA, DBFILE };
+function deleteLocalMedia(id){
+  const m = getLocalMedia(id);
+  if(!m) return false;
+  try{ fs.rmSync(path.join(MEDIA, path.basename(m.path)), { force: true }); }catch{}
+  if(db){ db.prepare(`DELETE FROM media_items WHERE id=?`).run(Number(id)); }
+  else {
+    try{
+      const jf = path.join(DIR,"local.json");
+      const a = JSON.parse(fs.readFileSync(jf,"utf8")).filter(x=>String(x.id)!==String(id));
+      fs.writeFileSync(jf, JSON.stringify(a,null,2));
+    }catch{}
+  }
+  return true;
+}
+module.exports = { saveLocalMedia, listLocalMedia, getLocalMedia, deleteLocalMedia, MEDIA_DIR: MEDIA, DBFILE };
