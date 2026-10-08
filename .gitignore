@@ -1,0 +1,15 @@
+node_modules/
+sessions/
+sessions_backup/
+logs/
+*.log
+.env
+.env.local
+.env.*
+!.env.example
+.agents/
+skills-lock.json
+data/
+# Local tooling (tidak dipakai)
+anti-slop/
+.opencode/
