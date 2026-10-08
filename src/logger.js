@@ -8,6 +8,8 @@ const ERROR_LOG = path.join(LOG_DIR, "error.log");
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
 
 function logCuy(message, type = "green") {
+  writeLog("INFO", String(message).slice(0, 400));
+  if (process.env.VERBOSE !== "1") return;
   moment.locale("id");
   const now = moment().tz("Asia/Jakarta");
   console.log(

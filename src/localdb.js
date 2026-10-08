@@ -18,6 +18,10 @@ function init(){
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sender TEXT, "group" TEXT, text TEXT, kind TEXT, created_at TEXT
   )`);
+  db.exec(`CREATE TABLE IF NOT EXISTS deleted(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender TEXT, "group" TEXT, text TEXT, kind TEXT, created_at TEXT, deleted_at TEXT
+  )`);
 }
 init();
 function saveInbox(sender, text, kind, group){
@@ -38,6 +42,25 @@ function saveInbox(sender, text, kind, group){
 function listInbox(limit=80){
   if(db) return db.prepare(`SELECT * FROM inbox ORDER BY id DESC LIMIT ?`).all(limit);
   try{ return JSON.parse(fs.readFileSync(path.join(DIR,"inbox.json"),"utf8")).slice(-limit).reverse(); }catch{ return [] }
+}
+function saveDeleted(sender, text, kind, group){
+  if(!text) return null;
+  const row = { sender: sender||"?", "group": group||"-", text: String(text).slice(0,600), kind: kind||"text", created_at: new Date().toISOString(), deleted_at: new Date().toISOString() };
+  if(db){
+    db.prepare(`INSERT INTO deleted(sender,"group",text,kind,created_at,deleted_at) VALUES(?,?,?,?,?,?)`).run(row.sender,row["group"],row.text,row.kind,row.created_at,row.deleted_at);
+    row.id = db.prepare(`SELECT last_insert_rowid() as id`).get().id;
+  } else {
+    try{
+      const jf = path.join(DIR,"deleted.json");
+      const a = JSON.parse(fs.readFileSync(jf,"utf8")); a.push(row);
+      row.id = a.length; fs.writeFileSync(jf, JSON.stringify(a,null,2));
+    }catch{ fs.writeFileSync(path.join(DIR,"deleted.json"), JSON.stringify([row],null,2)); row.id = 1; }
+  }
+  return row;
+}
+function listDeleted(limit=80){
+  if(db) return db.prepare(`SELECT * FROM deleted ORDER BY id DESC LIMIT ?`).all(limit);
+  try{ return JSON.parse(fs.readFileSync(path.join(DIR,"deleted.json"),"utf8")).slice(-limit).reverse(); }catch{ return [] }
 }
 function saveLocalMedia(buf, meta){
   if(!buf) return null;
@@ -81,4 +104,4 @@ function deleteLocalMedia(id){
   }
   return true;
 }
-module.exports = { saveLocalMedia, listLocalMedia, getLocalMedia, deleteLocalMedia, saveInbox, listInbox, MEDIA_DIR: MEDIA, DBFILE };
+module.exports = { saveLocalMedia, listLocalMedia, getLocalMedia, deleteLocalMedia, saveInbox, listInbox, saveDeleted, listDeleted, MEDIA_DIR: MEDIA, DBFILE };

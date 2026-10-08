@@ -3,7 +3,7 @@ const { config, sensorNum } = require("./config");
 const { state } = require("./state");
 const { logCuy, logErrorToFile } = require("./logger");
 const { getViewOnceContent, unwrapMessage } = require("./media");
-const { saveInbox } = require("./localdb");
+const { saveInbox, saveDeleted } = require("./localdb");
 const { handleViewOnce } = require("./viewonce");
 const { handleStatus } = require("./status");
 const { handleCommand } = require("./commands");
@@ -12,17 +12,18 @@ const deleteStore = new Map();
 
 function myJid() { return state.loggedInNumber ? `${state.loggedInNumber}@s.whatsapp.net` : null; }
 
-// antiDelete disabled (only viewonce useful): a copy of deleted messages to owner private chat
+// antiDelete: simpan teks untuk kirim ke owner + tulis tabel deleted untuk dashboard
 async function sendAntiDelete(sock, store, chatJid) {
   if (!store || !state.loggedInNumber) return false;
   const sender = store.pushName || store.senderNum || "?";
   const where = chatJid?.endsWith("@g.us") ? " di grup" : "";
-  const info = `🗑️ *Pesan dihapus* dari *${sender}*${where}\nWaktu: ${moment().tz("Asia/Jakarta").format("DD-MM-YYYY HH:mm:ss")}`;
+  const kind = store.type || "text";
+  saveDeleted(sender, store.text || "(kosong)", kind, chatJid || "-");
+  const info = `Pesan dihapus dari ${sender}${where}\nWaktu: ${moment().tz("Asia/Jakarta").format("DD-MM-YYYY HH:mm:ss")}`;
   const jidMy = `${state.loggedInNumber}@s.whatsapp.net`;
   const t = store.type;
   const label = t === "text" || t === "extendedText" ? "Isinya:" : t === "image" ? "(gambar dihapus) Caption:" : `(media ${t} dihapus tanpa caption)`;
   await sock.sendMessage(jidMy, { text: `${info}\n\n${label}\n${store.text || "(kosong)"}` });
-  logCuy(`antiDelete: forward pesan terhapus dari ${sender}`, "yellow");
   return true;
 }
 
@@ -133,7 +134,6 @@ function registerHandlers(sock) {
       // viewonce -> ambil & simpan lokal. Bot tidak
       // pernah kirim pesan apa pun ke kontak (hanya balas ke diri sendiri).
       if (msg.key.fromMe && mj && msg.quoted?.quotedMessage && getViewOnceContent(msg.quoted.quotedMessage)) {
-        logCuy(`Reply viewonce terdeteksi: "${msg.text}" -> ambil & simpan...`, "cyan");
         const reply = (t) => sock.sendMessage(mj, { text: t }, { quoted: msg });
         await handleViewOnce(sock, msg, mj, reply);
         return;
@@ -165,12 +165,9 @@ function registerHandlers(sock) {
               mentions: [participant],
             }, { quoted: msg });
             await sock.groupParticipantsUpdate(groupId, [participant], "remove");
-            logCuy(`Kamu mengeluarkan seseorang dari group ${groupName} karena telah tag grup di story.`, "red");
-          } else {
-            logCuy(`Kamu bukan admin di grup ${groupName} jadi tidak bisa kick.`, "yellow");
           }
         } catch (e) {
-          logCuy(`Gagal kick story: ${e.message}`, "red");
+          logErrorToFile(`Gagal kick story: ${e.message}`);
         }
       }
 
@@ -182,11 +179,6 @@ function registerHandlers(sock) {
     } catch (e) {
       const em = String(e?.message || e);
       logErrorToFile(`messages.upsert outer error: ${em} ${e?.stack || ""}`);
-      if (em.includes("closed session") || em.includes("Decrypted") || em.includes("Session closed")) {
-        logCuy("Abaikan closed session di handler utama (disiplin)", "yellow");
-      } else {
-        logCuy(`Error handler: ${em.slice(0, 120)}`, "red");
-      }
     }
   });
 }

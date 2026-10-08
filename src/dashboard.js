@@ -43,6 +43,13 @@ function readConfig() {
 function listInboxDB(limit) {
   try { return require("./localdb").listInbox(limit); } catch { return []; }
 }
+function listDeletedDB(limit) {
+  try { return require("./localdb").listDeleted(limit); } catch { return []; }
+}
+function botNav(tab) {
+  const t = (id, href, label) => `<a class="btab${tab === id ? " on" : ""}" href="${href}">${label}</a>`;
+  return `<nav class="bnav" aria-label="Navigasi utama"><div class="bnavIn">${t("galeri", "/", "Galeri")}${t("pesan", "/pesan", "Pesan")}${t("atur", "/pengaturan", "Atur")}</div></nav>`;
+}
 
 // ponytail: single-file dashboard CMS, ceiling ~500 items; upgrade pagination bila berat
 const CSS = `:root{--bg:#0e0e12;--panel:#17171d;--panel2:#1e1e26;--ink:#f4f3ee;--mut:#a7a69e;--line:#2a2a33;--acc:#34d17b;--accink:#04170d;--r:16px}
@@ -92,7 +99,16 @@ a{color:inherit}
 .sw.on{background:var(--acc);border-color:var(--acc);color:var(--accink)}
 .sw:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .foot{margin-top:18px;text-align:center;font-size:11px;color:var(--mut)}
-.ibox{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.ibox{display:flex;flex-direction:column;gap:14px;margin-top:10px}
+.icard .irow{margin-top:6px}
+.logcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:10px}
+.logcard .ltop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.logcard .user{font-size:12px;font-weight:700}
+.logcard .groupTag{font-size:10px;font-weight:700;color:var(--acc);background:rgba(52,209,123,.12);border:1px solid rgba(52,209,123,.35);padding:3px 8px;border-radius:999px}
+.logcard .tt{font-size:15px;margin:8px 0 0;line-height:1.4;word-break:break-word}
+.logcard .tm{font-size:10px;color:var(--mut);margin-top:6px;font-weight:600}
+.logcard.del{border-style:dashed;border-color:#7a4a4a}
+.logcard .delTag{font-size:10px;font-weight:800;color:#e08a8a;letter-spacing:.04em}
 .irow{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
 .irow.group{align-items:flex-start}
 .irow .who{font-size:10px;font-weight:700;color:var(--mut);letter-spacing:.04em}
@@ -100,12 +116,20 @@ a{color:inherit}
 .irow.group .ibubble{border-radius:16px 16px 4px 16px;background:#24312a;border-color:#33513f}
 .itime{font-size:10px;color:var(--mut);font-weight:600}
 .mut{color:var(--mut)}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(14,14,18,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+.bnavIn{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.btab{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;justify-content:center;border-radius:12px;text-decoration:none;font-size:10px;font-weight:700;color:var(--mut);border:1px solid transparent}
+.btab .ic{font-size:17px;line-height:1}
+.btab.on{color:var(--acc);background:rgba(52,209,123,.1);border-color:rgba(52,209,123,.3)}
+.btab:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.wrap{padding-bottom:calc(48px + 76px + env(safe-area-inset-bottom))}
 @keyframes rise{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.tile{animation:none}}
 `;
 
-function shell(title, body) {
-  return `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><title>${esc(title)}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet"><style>${CSS}</style></head><body><div class="wrap">${body}</div></body></html>`;
+function shell(title, body, tab) {
+  const nav = botNav(tab || "");
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><title>${esc(title)}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet"><style>${CSS}</style></head><body><div class="wrap">${body}${nav}</div></body></html>`;
 }
 
 function query(items, url) {
@@ -146,29 +170,44 @@ function page(items, reqUrl) {
   const sc = stats(items);
   const chip = (id, lbl) => `<a class="chip${type === id ? " on" : ""}" href="/?t=${id}${s ? `&q=${encodeURIComponent(s)}` : ""}">${lbl}</a>`;
   const grid = q.map(tile).join("");
-  const inboxRows = listInboxDB(40).map((r) => {
-    const isG = r.group && r.group !== "-";
-    const head = isG ? `${esc(r.sender)} · ${esc(r.group)}` : esc(r.sender);
-    return `<div class="irow${isG ? " group" : ""}"><span class="who">${head}</span><div class="ibubble">${esc(r.text)}</div><span class="itime">${esc(fmtTime(r.created_at))} · ${esc(r.kind)}</span></div>`;
-  }).join("");
-  const inboxBox = `<section class="cfg"><h3>Pesan masuk</h3><p class="hint">Dulu di terminal, sekarang di sini. Nomor tampil penuh.</p><div class="ibox">${inboxRows || '<div class="mut">Belum ada pesan.</div>'}</div></section>`;
   const empty = q.length === 0
     ? `<div class="empty">${items.length === 0 ? "Belum ada arsip.<br>Balas pesan sekali-lihat dengan teks apa pun." : "Tidak ada hasil untuk filter ini."}</div>`
     : `<div class="grid">${grid}</div>`;
-
-  const cfg = readConfig();
-  const cfgBox = cfg ? `<section class="cfg" id="pengaturan"><h3>Pengaturan bot</h3><p class="hint">Ketuk untuk menyalakan atau mematikan langsung. Toggle sensor tetap ada, default OFF.</p>`
-    + TOGGLES.map(([k, lbl]) => `<div class="trow"><span>${lbl}</span><form action="/api/toggle" method="post"><input type="hidden" name="key" value="${k}"><button class="sw${cfg[k] ? " on" : ""}" type="submit" aria-pressed="${!!cfg[k]}">${cfg[k] ? "ON" : "OFF"}</button></form></div>`).join("")
-    + `</section>` : "";
-
-  const body = `<header class="topbar"><h1>Arsip Sekali Lihat <small>ADMIN</small></h1><p class="sub">Galeri simpanan lokal, offline.</p>`
+  const body = `<header class="topbar"><h1>Arsip Sekali Lihat <small>ADMIN</small></h1><p class="sub">Galeri ViewOnce, offline.</p>`
     + `<div class="kpi"><div class="k"><div class="n">${items.length}</div><div class="l">Total</div></div><div class="k"><div class="n">${sc.foto}</div><div class="l">Foto</div></div><div class="k"><div class="n">${sc.video}</div><div class="l">Video</div></div><div class="k"><div class="n">${sc.audio}</div><div class="l">Audio</div></div></div>`
     + `<form class="toolbar" action="/" method="get"><div class="search"><input name="q" value="${esc(s)}" placeholder="Cari pengirim atau keterangan" aria-label="Cari"><input type="hidden" name="t" value="${esc(type)}"></div></form>`
     + `<div class="toolbar">${chip("semua", "Semua")} ${chip("image", "Foto")} ${chip("video", "Video")} ${chip("audio", "Audio")}</div>`
     + `</header>`
-    + empty + inboxBox + cfgBox
-    + `<div class="foot">localhost:${PORT} · Arhinza · File aman di data/, tetap ada saat bot mati</div>`;
-  return shell("Arsip · Admin", body);
+    + empty
+    + `<div class="foot">localhost:${PORT} · ViewOnce saja di sini. Pesan ada di tab Pesan.</div>`;
+  return shell("Arsip · Admin", body, "galeri");
+}
+function pesanPage(reqUrl) {
+  const u = new URL(reqUrl, "http://x");
+  const tab = (u.searchParams.get("tab") || "masuk").toLowerCase();
+  const seg = (id, lbl, href) => `<a class="chip${tab === id ? " on" : ""}" href="${href}">${lbl}</a>`;
+  const inbox = listInboxDB(80);
+  const deleted = listDeletedDB(80);
+  const renderLog = (r, del) => {
+    const isG = r.group && r.group !== "-";
+    const tag = isG ? `<span class="groupTag">${esc(r.group)}</span>` : "";
+    const delTag = del ? `<span class="delTag">DIHAPUS</span>` : "";
+    return `<div class="logcard${del ? " del" : ""}"><div class="ltop"><span class="user">${esc(r.sender)}</span><span style="display:flex;gap:6px;align-items:center">${tag}${delTag}</span></div><p class="tt">${esc(r.text)}</p><div class="tm">${esc(fmtTime(r.created_at))} · ${esc(r.kind)}</div></div>`;
+  };
+  const list = tab === "dihapus" ? deleted.map((r) => renderLog(r, true)).join("") : inbox.map((r) => renderLog(r, false)).join("");
+  const empty = `<div class="empty">${tab === "dihapus" ? "Belum ada pesan dihapus." : "Belum ada pesan masuk."}</div>`;
+  const body = `<header class="topbar"><h1>Pesan <small>LOG</small></h1><p class="sub">Semua chat masuk dan yang dihapus. Grup tampil di badge.</p>`
+    + `<div class="toolbar">${seg("masuk", `Masuk · ${inbox.length}`, "/pesan?tab=masuk")} ${seg("dihapus", `Dihapus · ${deleted.length}`, "/pesan?tab=dihapus")}</div>`
+    + `</header><div style="margin-top:10px">${list || empty}</div><div class="foot">Nomor tampil penuh. AntiDelete simpan di sini.</div>`;
+  return shell("Pesan · Admin", body, "pesan");
+}
+function pengaturanPage() {
+  const cfg = readConfig();
+  const toggles = cfg ? TOGGLES.map(([k, lbl]) => `<div class="trow"><span>${lbl}</span><form action="/api/toggle" method="post"><input type="hidden" name="key" value="${k}"><button class="sw${cfg[k] ? " on" : ""}" type="submit" aria-pressed="${!!cfg[k]}">${cfg[k] ? "ON" : "OFF"}</button></form></div>`).join("") : `<div class="mut">config.json tidak terbaca.</div>`;
+  const body = `<header class="topbar"><h1>Pengaturan <small>ADMIN</small></h1><p class="sub">Toggle langsung tulis config.json. Tidak perlu chat #on.</p></header>`
+    + `<section class="cfg" style="margin-top:12px"><h3>Fitur bot</h3><p class="hint">Ketuk ON atau OFF. Default sensor OFF.</p>${toggles}</section>`
+    + `<div class="foot">localhost:${PORT} · Termux</div>`;
+  return shell("Atur · Admin", body, "atur");
 }
 
 function viewPage(m) {
@@ -186,7 +225,7 @@ function viewPage(m) {
     + `<div class="row2"><a class="dlFull" href="/media/${m.id}?download=1" download="${fname(m)}">Unduh kualitas penuh</a><a class="btnGhost" href="/hapus/${m.id}" onclick="return confirm('Hapus arsip #${m.id}?')">Hapus</a></div>`
     + `<div class="note">File asli dari perangkat ini, bukan pratinjau.</div>`
     + `</div></div>`;
-  return shell(`Arsip #${m.id}`, body);
+  return shell(`Arsip #${m.id}`, body, "galeri");
 }
 
 function readBody(req) {
@@ -220,7 +259,8 @@ function startDashboard(port = PORT) {
         const cfg = readConfig();
         if (cfg && TOGGLES.some(([k]) => k === key)) {
           updateConfig(key, !cfg[key]);
-          res.writeHead(302, { Location: "/#pengaturan" });
+          const ref = req.headers.referer && req.headers.referer.includes("/pengaturan") ? "/pengaturan" : "/pengaturan";
+          res.writeHead(302, { Location: ref });
           res.end("ok");
         } else { res.writeHead(400); res.end("bad key"); }
         return;
@@ -234,7 +274,17 @@ function startDashboard(port = PORT) {
       if (u.pathname.startsWith("/v/")) {
         const m = getLocalMedia(u.pathname.slice(3));
         res.writeHead(m ? 200 : 404, { "Content-Type": "text/html;charset=utf-8" });
-        res.end(m ? viewPage(m) : shell("Tidak ada", `<a class="back" href="/">← Kembali</a><div class="empty">Arsip tidak ada.</div>`));
+        res.end(m ? viewPage(m) : shell("Tidak ada", `<a class="back" href="/">← Kembali</a><div class="empty">Arsip tidak ada.</div>`, "galeri"));
+        return;
+      }
+      if (u.pathname === "/pesan" || u.pathname.startsWith("/pesan/")) {
+        res.writeHead(200, { "Content-Type": "text/html;charset=utf-8" });
+        res.end(pesanPage(req.url));
+        return;
+      }
+      if (u.pathname === "/pengaturan" || u.pathname === "/atur") {
+        res.writeHead(200, { "Content-Type": "text/html;charset=utf-8" });
+        res.end(pengaturanPage());
         return;
       }
       res.writeHead(200, { "Content-Type": "text/html;charset=utf-8" });
