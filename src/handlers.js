@@ -3,6 +3,7 @@ const { config, sensorNum } = require("./config");
 const { state } = require("./state");
 const { logCuy, logErrorToFile } = require("./logger");
 const { getViewOnceContent, unwrapMessage } = require("./media");
+const { saveInbox } = require("./localdb");
 const { handleViewOnce } = require("./viewonce");
 const { handleStatus } = require("./status");
 const { handleCommand } = require("./commands");
@@ -116,13 +117,15 @@ function registerHandlers(sock) {
       const prefix = prefixes.find((p) => msg.text.startsWith(p));
       const mj = myJid();
 
-      // Terminal feedback untuk verifikasi: (nomor) -> pesan
+      // Pesan masuk disimpan ke inbox dashboard (gantikan terminal)
       if (!msg.key.fromMe) {
         const rjid = msg.key.remoteJid || "";
-        if (rjid.endsWith("@g.us")) {
-          logCuy(`(grup ${msg.key.participant?.split("@")[0] || "?"}) -> ${msg.text.trim() || `[${msg.type}]`}`, "cyan");
-        } else if (rjid !== "status@broadcast") {
-          logCuy(`(${rjid.split("@")[0]}) -> ${msg.text.trim() || `[${msg.type}]`}`, "cyan");
+        if (rjid === "status@broadcast") { /* skip */ }
+        else if (rjid.endsWith("@g.us")) {
+          const sender = msg.key.participant?.split("@")[0] || msg.pushName || "?";
+          saveInbox(sender, msg.text.trim() || `[${msg.type}]`, msg.type, rjid.split("@")[0]);
+        } else {
+          saveInbox(rjid.split("@")[0], msg.text.trim() || `[${msg.type}]`, msg.type, "-");
         }
       }
 

@@ -2,7 +2,7 @@
     "autoReadStatus": false,
     "autoLikeStatus": false,
     "downloadMediaStatus": false,
-    "sensorNomor": true,
+    "sensorNomor": false,
     "antiTelpon": false,
     "autoKickStory": false,
     "blackList": [],

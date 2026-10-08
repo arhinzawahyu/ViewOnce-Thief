@@ -14,8 +14,31 @@ function init(){
     kind TEXT, media_type TEXT, sender TEXT, name TEXT,
     caption TEXT, mime TEXT, path TEXT, created_at TEXT
   )`);
+  db.exec(`CREATE TABLE IF NOT EXISTS inbox(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender TEXT, "group" TEXT, text TEXT, kind TEXT, created_at TEXT
+  )`);
 }
 init();
+function saveInbox(sender, text, kind, group){
+  if(!text) return null;
+  const row = { sender: sender||"?", "group": group||"-", text: String(text).slice(0,500), kind: kind||"text", created_at: new Date().toISOString() };
+  if(db){
+    db.prepare(`INSERT INTO inbox(sender,"group",text,kind,created_at) VALUES(?,?,?,?,?)`).run(row.sender,row["group"],row.text,row.kind,row.created_at);
+    row.id = db.prepare(`SELECT last_insert_rowid() as id`).get().id;
+  } else {
+    try{
+      const jf = path.join(DIR,"inbox.json");
+      const a = JSON.parse(fs.readFileSync(jf,"utf8")); a.push(row);
+      row.id = a.length; fs.writeFileSync(jf, JSON.stringify(a,null,2));
+    }catch{ fs.writeFileSync(path.join(DIR,"inbox.json"), JSON.stringify([row],null,2)); row.id = 1; }
+  }
+  return row;
+}
+function listInbox(limit=80){
+  if(db) return db.prepare(`SELECT * FROM inbox ORDER BY id DESC LIMIT ?`).all(limit);
+  try{ return JSON.parse(fs.readFileSync(path.join(DIR,"inbox.json"),"utf8")).slice(-limit).reverse(); }catch{ return [] }
+}
 function saveLocalMedia(buf, meta){
   if(!buf) return null;
   const ts = Date.now();
@@ -58,4 +81,4 @@ function deleteLocalMedia(id){
   }
   return true;
 }
-module.exports = { saveLocalMedia, listLocalMedia, getLocalMedia, deleteLocalMedia, MEDIA_DIR: MEDIA, DBFILE };
+module.exports = { saveLocalMedia, listLocalMedia, getLocalMedia, deleteLocalMedia, saveInbox, listInbox, MEDIA_DIR: MEDIA, DBFILE };
